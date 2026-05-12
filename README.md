@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🚀 AutoTermos - Simples Contábil v1
 
-# Run and deploy your AI Studio app
+Uma ferramenta moderna para preenchimento automático de termos e contratos.
 
-This contains everything you need to run your app locally.
+## 📦 Como Iniciar Rapidamente
 
-View your app in AI Studio: https://ai.studio/apps/654be8b9-0430-4aab-a1ac-53b406b2c86d
+Para rodar o programa no seu computador:
 
-## Run Locally
+1. Dê um duplo clique no arquivo **`INICIAR_SISTEMA.bat`**.
+2. O sistema irá instalar as dependências (caso necessário), abrir o navegador em `http://localhost:3000` e iniciar o servidor automaticamente.
 
-**Prerequisites:**  Node.js
+## 🛠️ Comandos de Desenvolvedor
 
+Se preferir rodar manualmente via terminal:
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+*   **Instalar dependências**: `npm install`
+*   **Rodar tudo (Frontend + Backend)**: `npm run dev:all`
+*   **Apenas Frontend**: `npm run dev`
+*   **Apenas Backend**: `npm run server`
+
+## 🔒 Segurança
+
+As chaves de API e dados são processados localmente. Configure sua chave Gemini no painel de configurações dentro do aplicativo para usar as funções de IA.
+
+---
+© 2026 Simples Contábil - AutoTermos v1

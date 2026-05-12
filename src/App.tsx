@@ -391,132 +391,39 @@ export default function App() {
     saveAs(blob, `Termo_Preenchido_${new Date().getTime()}.docx`);
   };
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   const handleDownloadPdf = async () => {
-    // Use browser's native print engine via a new window for perfect PDF rendering.
-    // This produces results identical to the Word export, with proper fonts,
-    // page breaks, and background image handling.
-    const bgImageUrl = new URL('/a.png', window.location.origin).href;
+    // Generate PDF via backend: sends HTML to server, which creates DOCX
+    // and converts to PDF using LibreOffice for perfect formatting.
+    setIsGeneratingPdf(true);
+    try {
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filledHtml: filledText }),
+      });
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Por favor, permita pop-ups para gerar o PDF.');
-      return;
-    }
-
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Termo Preenchido</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap" rel="stylesheet">
-  <style>
-    @page {
-      size: A4;
-      margin: 0;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      background: #f5f5f5;
-      color: black;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      color-adjust: exact !important;
-    }
-
-    /* Top bar with instructions */
-    .toolbar {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: linear-gradient(135deg, #1a0a10, #3a0d1c);
-      color: #f0e6c8; padding: 14px 24px;
-      display: flex; align-items: center; justify-content: center; gap: 16px;
-      font-family: system-ui, sans-serif; font-size: 14px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-    }
-    .toolbar b { color: #d4af37; }
-    .toolbar button {
-      padding: 8px 28px; background: linear-gradient(135deg, #a8891e, #d4af37);
-      color: #0a0608; border: none; border-radius: 8px; cursor: pointer;
-      font-weight: 700; font-size: 14px; font-family: system-ui, sans-serif;
-      transition: all 0.2s;
-    }
-    .toolbar button:hover { background: linear-gradient(135deg, #d4af37, #e8cc6a); transform: translateY(-1px); }
-    .toolbar .tip {
-      font-size: 11px; color: #c9b07a; margin-left: 8px;
-    }
-
-    /* Document page container */
-    .page-wrapper { padding: 60px 0 40px 0; display: flex; flex-direction: column; align-items: center; }
-    .page {
-      width: 210mm; min-height: 297mm;
-      background: white;
-      background-image: url('${bgImageUrl}');
-      background-size: 210mm 297mm;
-      background-repeat: repeat-y;
-      background-position: top center;
-      position: relative;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
-      margin-bottom: 20px;
-    }
-    .content {
-      padding: 80mm 25mm 50mm 25mm;
-      font-size: 12pt; line-height: 1.6; color: black;
-    }
-
-    /* Typography */
-    h1 { font-size: 18pt; font-weight: 700; text-align: center; margin-bottom: 10pt; line-height: 1.3; }
-    h2 { font-size: 15pt; font-weight: 700; margin-top: 12pt; margin-bottom: 6pt; }
-    h3 { font-size: 13pt; font-weight: 700; margin-top: 10pt; margin-bottom: 5pt; }
-    p  { margin-bottom: 5pt; text-align: justify; }
-    strong, b { font-weight: 700; }
-    em, i { font-style: italic; }
-    ul, ol { margin-left: 20pt; margin-bottom: 6pt; }
-    li { margin-bottom: 3pt; }
-
-    /* Quill alignment classes */
-    .ql-align-center { text-align: center; }
-    .ql-align-right  { text-align: right; }
-    .ql-align-justify { text-align: justify; }
-
-    /* Print-specific styles */
-    @media print {
-      body { background: white !important; }
-      .toolbar { display: none !important; }
-      .page-wrapper { padding: 0 !important; }
-      .page {
-        box-shadow: none !important;
-        margin: 0 !important;
-        width: 100% !important;
-        background-image: url('${bgImageUrl}') !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color-adjust: exact !important;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || `Erro ${response.status}`);
       }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Termo_Preenchido_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Erro ao gerar PDF:', err);
+      alert(`Erro ao gerar PDF: ${err.message}\n\nVerifique se o servidor backend está rodando (npm run server).`);
+    } finally {
+      setIsGeneratingPdf(false);
     }
-  </style>
-</head>
-<body>
-  <div class="toolbar">
-    <span>Para salvar como <b>PDF</b>: clique no botão e selecione <b>"Salvar como PDF"</b> no destino da impressora.</span>
-    <button onclick="window.print()">⬇ Salvar como PDF</button>
-    <span class="tip">Dica: Ative "Gráficos de plano de fundo" nas opções para incluir o papel timbrado.</span>
-  </div>
-  <div class="page-wrapper">
-    <div class="page">
-      <div class="content">
-        ${filledText}
-      </div>
-    </div>
-  </div>
-  <script>
-    // Auto-trigger print after fonts are fully loaded
-    document.fonts.ready.then(function() {
-      setTimeout(function() { window.print(); }, 400);
-    });
-  </script>
-</body>
-</html>`);
-    printWindow.document.close();
   };
 
   const handleCopyClipboard = () => {
@@ -893,14 +800,15 @@ export default function App() {
 
                   <button 
                     onClick={handleDownloadPdf}
-                    className="w-full flex items-center gap-4 p-5 bg-bg-noite border border-bg-bordo rounded-2xl hover:border-ouro-imperial transition-all text-left shadow-sm group"
+                    disabled={isGeneratingPdf}
+                    className="w-full flex items-center gap-4 p-5 bg-bg-noite border border-bg-bordo rounded-2xl hover:border-ouro-imperial transition-all text-left shadow-sm group disabled:opacity-60 disabled:cursor-wait"
                   >
                     <div className="p-3 bg-bg-bordo-profundo rounded-xl group-hover:bg-bg-bordo transition-colors">
-                      <Download className="text-text-areia" size={24} />
+                      {isGeneratingPdf ? <Loader2 className="text-ouro-imperial animate-spin" size={24} /> : <Download className="text-text-areia" size={24} />}
                     </div>
                     <div>
-                      <div className="font-cinzel font-bold text-base text-text-creme">Imprimir / PDF</div>
-                      <div className="text-[10px] text-text-terra font-bold uppercase tracking-widest text-wrap">Salvar Digitalmente</div>
+                      <div className="font-cinzel font-bold text-base text-text-creme">{isGeneratingPdf ? 'Gerando PDF...' : 'Baixar PDF'}</div>
+                      <div className="text-[10px] text-text-terra font-bold uppercase tracking-widest text-wrap">{isGeneratingPdf ? 'Convertendo via servidor' : 'Alta Qualidade'}</div>
                     </div>
                   </button>
                 </div>

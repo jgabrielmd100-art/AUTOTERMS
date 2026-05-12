@@ -30,7 +30,6 @@ import { Document, Packer, Paragraph, TextRun, AlignmentType, Header, Footer, Im
 import { saveAs } from 'file-saver';
 import { GoogleGenAI } from "@google/genai";
 import mammoth from 'mammoth';
-import html2pdf from 'html2pdf.js';
 
 import 'react-quill-new/dist/quill.snow.css';
 const ReactQuill = React.lazy(() => import('react-quill-new'));
@@ -372,7 +371,16 @@ export default function App() {
 
     const doc = new Document({
       sections: [{
-        properties: {},
+        properties: {
+          page: {
+            margin: {
+              top: 4500,     // ~80mm to clear the letterhead header with breathing room
+              bottom: 2800,  // ~50mm to clear the letterhead footer with breathing room
+              left: 1400,    // ~25mm to clear the border frame
+              right: 1400,   // ~25mm to clear the border frame
+            },
+          },
+        },
         headers: headers,
         footers: footers,
         children: docChildren,
@@ -383,19 +391,132 @@ export default function App() {
     saveAs(blob, `Termo_Preenchido_${new Date().getTime()}.docx`);
   };
 
-  const handleDownloadPdf = () => {
-    if (!printRef.current) return;
-    
-    // We add a class to slightly adjust the printable area for html2pdf if needed
-    const opt = {
-      margin:       15,
-      filename:     `Termo_Preenchido_${new Date().getTime()}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    
-    html2pdf().set(opt).from(printRef.current).save();
+  const handleDownloadPdf = async () => {
+    // Use browser's native print engine via a new window for perfect PDF rendering.
+    // This produces results identical to the Word export, with proper fonts,
+    // page breaks, and background image handling.
+    const bgImageUrl = new URL('/a.png', window.location.origin).href;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Por favor, permita pop-ups para gerar o PDF.');
+      return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Termo Preenchido</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      background: #f5f5f5;
+      color: black;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
+    /* Top bar with instructions */
+    .toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: linear-gradient(135deg, #1a0a10, #3a0d1c);
+      color: #f0e6c8; padding: 14px 24px;
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      font-family: system-ui, sans-serif; font-size: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    }
+    .toolbar b { color: #d4af37; }
+    .toolbar button {
+      padding: 8px 28px; background: linear-gradient(135deg, #a8891e, #d4af37);
+      color: #0a0608; border: none; border-radius: 8px; cursor: pointer;
+      font-weight: 700; font-size: 14px; font-family: system-ui, sans-serif;
+      transition: all 0.2s;
+    }
+    .toolbar button:hover { background: linear-gradient(135deg, #d4af37, #e8cc6a); transform: translateY(-1px); }
+    .toolbar .tip {
+      font-size: 11px; color: #c9b07a; margin-left: 8px;
+    }
+
+    /* Document page container */
+    .page-wrapper { padding: 60px 0 40px 0; display: flex; flex-direction: column; align-items: center; }
+    .page {
+      width: 210mm; min-height: 297mm;
+      background: white;
+      background-image: url('${bgImageUrl}');
+      background-size: 210mm 297mm;
+      background-repeat: repeat-y;
+      background-position: top center;
+      position: relative;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      margin-bottom: 20px;
+    }
+    .content {
+      padding: 80mm 25mm 50mm 25mm;
+      font-size: 12pt; line-height: 1.6; color: black;
+    }
+
+    /* Typography */
+    h1 { font-size: 18pt; font-weight: 700; text-align: center; margin-bottom: 10pt; line-height: 1.3; }
+    h2 { font-size: 15pt; font-weight: 700; margin-top: 12pt; margin-bottom: 6pt; }
+    h3 { font-size: 13pt; font-weight: 700; margin-top: 10pt; margin-bottom: 5pt; }
+    p  { margin-bottom: 5pt; text-align: justify; }
+    strong, b { font-weight: 700; }
+    em, i { font-style: italic; }
+    ul, ol { margin-left: 20pt; margin-bottom: 6pt; }
+    li { margin-bottom: 3pt; }
+
+    /* Quill alignment classes */
+    .ql-align-center { text-align: center; }
+    .ql-align-right  { text-align: right; }
+    .ql-align-justify { text-align: justify; }
+
+    /* Print-specific styles */
+    @media print {
+      body { background: white !important; }
+      .toolbar { display: none !important; }
+      .page-wrapper { padding: 0 !important; }
+      .page {
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 100% !important;
+        background-image: url('${bgImageUrl}') !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span>Para salvar como <b>PDF</b>: clique no botão e selecione <b>"Salvar como PDF"</b> no destino da impressora.</span>
+    <button onclick="window.print()">⬇ Salvar como PDF</button>
+    <span class="tip">Dica: Ative "Gráficos de plano de fundo" nas opções para incluir o papel timbrado.</span>
+  </div>
+  <div class="page-wrapper">
+    <div class="page">
+      <div class="content">
+        ${filledText}
+      </div>
+    </div>
+  </div>
+  <script>
+    // Auto-trigger print after fonts are fully loaded
+    document.fonts.ready.then(function() {
+      setTimeout(function() { window.print(); }, 400);
+    });
+  </script>
+</body>
+</html>`);
+    printWindow.document.close();
   };
 
   const handleCopyClipboard = () => {
@@ -802,7 +923,7 @@ export default function App() {
                 <div 
                   id="document-preview-content" 
                   ref={printRef} 
-                  className={`bg-white border border-ouro-escuro/30 rounded-2xl shadow-2xl min-h-[1122px] p-[20mm] relative overflow-hidden ql-container ql-snow print:shadow-none print:border-none print:p-0`}
+                  className={`bg-white border border-ouro-escuro/30 rounded-2xl shadow-2xl min-h-[1122px] relative overflow-hidden ql-container ql-snow print:shadow-none print:border-none print:p-0`}
                   style={{
                     backgroundImage: 'url(/a.png)',
                     backgroundSize: '100% 1122px', // A4 page height equivalent
@@ -810,9 +931,14 @@ export default function App() {
                     backgroundPosition: 'top center'
                   }}
                 >
-                  <div className="relative z-10 h-full flex flex-col">
+                  <div className="relative z-10 h-full flex flex-col" style={{
+                    paddingTop: '280px',     // Clear the letterhead header area with extra breathing room
+                    paddingBottom: '160px',  // Clear the letterhead footer area with extra breathing room
+                    paddingLeft: '28mm',     // Clear the border frame left
+                    paddingRight: '28mm',    // Clear the border frame right
+                  }}>
                     <div 
-                      className={`ql-editor font-serif text-black leading-relaxed text-sm lg:text-[17px] selection:bg-bg-bordo/20 print:p-0 flex-1 pt-32`}
+                      className={`ql-editor font-serif text-black leading-relaxed text-sm lg:text-[17px] selection:bg-bg-bordo/20 print:p-0 flex-1`}
                       dangerouslySetInnerHTML={{ __html: filledText }}
                     />
                   </div>
